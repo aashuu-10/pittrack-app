@@ -283,6 +283,11 @@ const DEFAULT_SECTIONS = ["Development","Longwall","CCS","LHD4","LOCO"];
 const SECTION_CODES = {"Development":"DEV","Longwall":"LW","CCS":"CCS","LHD4":"LHD4","LOCO":"LOCO"};
 const STATUS_LABELS = {P:"Present",A:"Absent",H:"Half Day",L:"Leave",Hol:"Holiday"};
 
+function todayLocal(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+
 let DB = { sections:[], categories:[], users:[], employees:[], leaves:[] };
 let currentUser = null;
 let currentTab = "dashboard";
@@ -422,8 +427,7 @@ function logout(){
   goto('landing');
 }
 
-/* ============ FORGOT PASSWORD / OTP (Super Admin only) ============ */
-let pendingOtp = null; // {code, expiresAt}
+/* ============ FORGOT PASSWORD / OTP (Super Admin only, via Firebase Phone Auth) ============ */
 
 function getSuperAdmin(){ return DB.users.find(u=>u.role==='super_admin'); }
 
@@ -436,9 +440,10 @@ function renderForgotPasswordStep1(){
     return;
   }
   document.getElementById('fp-card').innerHTML = `
-    <div class="field"><label>Registered Phone Number</label><input id="fp-phone" placeholder="Enter your registered phone number"></div>
+    <div class="field"><label>Registered Phone Number</label><input id="fp-phone" placeholder="+91XXXXXXXXXX (with country code)"></div>
     <div class="err" id="fp-err"></div>
-    <button class="btn primary" onclick="sendOtp()">Send OTP</button>`;
+    <button class="btn primary" onclick="sendOtp()">Send OTP</button>
+    <div id="recaptcha-container" style="margin-top:12px;"></div>`;
 }
 
 /* Device-owner-only recovery: intentionally NOT linked from any button or menu.
@@ -455,30 +460,45 @@ window.emergencyReset = async function(newPassword){
   return ok;
 };
 
-function sendOtp(){
+let pendingConfirmation = null;
+let recaptchaVerifier = null;
+
+async function sendOtp(){
   const sa = getSuperAdmin();
   const enteredPhone = document.getElementById('fp-phone').value.trim();
   const errEl = document.getElementById('fp-err');
   if(enteredPhone !== sa.phone){ errEl.textContent = "That phone number doesn't match our records."; return; }
+  if(!/^\+[1-9]\d{7,14}$/.test(enteredPhone)){ errEl.textContent = "Enter the number in international format, e.g. +919876543210."; return; }
 
-  const code = String(Math.floor(100000 + Math.random()*900000));
-  pendingOtp = { code, expiresAt: Date.now() + 5*60*1000 };
+  errEl.textContent = "Sending...";
+  try{
+    if(!recaptchaVerifier){
+      recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { size: 'invisible' });
+    }
+    pendingConfirmation = await firebase.auth().signInWithPhoneNumber(enteredPhone, recaptchaVerifier);
+  } catch(e){
+    console.error(e);
+    errEl.textContent = "Could not send the OTP. Check the number and try again in a minute.";
+    return;
+  }
 
   document.getElementById('fp-card').innerHTML = `
-    <div style="background:var(--panel-alt);border:1px solid var(--amber-dim);border-radius:9px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-dim);line-height:1.5;">
-      No SMS provider is connected to this app yet, so the code can't be texted to your phone for real. It's shown here instead so the reset still works:
-      <div style="font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--amber);letter-spacing:3px;margin-top:8px;text-align:center;">${code}</div>
-    </div>
+    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">A code was texted to ${enteredPhone}.</p>
     <div class="field"><label>Enter the 6-digit code</label><input id="fp-otp" placeholder="000000" maxlength="6"></div>
     <div class="err" id="fp-err2"></div>
     <button class="btn primary" onclick="verifyOtp()">Verify Code</button>`;
 }
 
-function verifyOtp(){
+async function verifyOtp(){
   const entered = document.getElementById('fp-otp').value.trim();
   const errEl = document.getElementById('fp-err2');
-  if(!pendingOtp || Date.now() > pendingOtp.expiresAt){ errEl.textContent = "Code expired. Go back and request a new one."; return; }
-  if(entered !== pendingOtp.code){ errEl.textContent = "Incorrect code."; return; }
+  if(!pendingConfirmation){ errEl.textContent = "Session expired. Go back and request a new code."; return; }
+  try{
+    await pendingConfirmation.confirm(entered);
+  } catch(e){
+    errEl.textContent = "Incorrect or expired code.";
+    return;
+  }
 
   document.getElementById('fp-card').innerHTML = `
     <div class="field"><label>New Password</label><input id="fp-new" type="password"></div>
@@ -502,7 +522,7 @@ async function finishOtpReset(){
   const ok = await ssave("users", DB.users);
   if(!ok){ errEl.textContent = "Could not save the new password. Check your connection and try again."; return; }
 
-  pendingOtp = null;
+  pendingConfirmation = null;
   showToast("Password reset. Please log in with your new password.");
   goto('login-super');
 }
@@ -527,8 +547,8 @@ function enterApp(){
 function promptForRecoveryPhone(){
   document.getElementById('modal-body').innerHTML = `
     <h3>Set a Recovery Phone Number</h3>
-    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">This is required so you can reset your password via OTP if you're ever locked out. It only takes a second.</p>
-    <div class="field"><label>Phone Number</label><input id="rp-phone" placeholder="e.g. 9876543210"></div>
+    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">This is required so you can reset your password via a real SMS code if you're ever locked out. Use international format with country code.</p>
+    <div class="field"><label>Phone Number</label><input id="rp-phone" placeholder="+919876543210"></div>
     <div class="err" id="rp-err"></div>
     <button class="btn primary" onclick="saveRecoveryPhone()">Save Phone Number</button>`;
   openModal();
@@ -538,7 +558,7 @@ function promptForRecoveryPhone(){
 async function saveRecoveryPhone(){
   const phone = document.getElementById('rp-phone').value.trim();
   const errEl = document.getElementById('rp-err');
-  if(!phone || phone.length<6){ errEl.textContent = "Enter a valid phone number."; return; }
+  if(!/^\+[1-9]\d{7,14}$/.test(phone)){ errEl.textContent = "Use international format with country code, e.g. +919876543210."; return; }
   const idx = DB.users.findIndex(u=>u.id===currentUser.id);
   const previous = DB.users[idx].phone;
   DB.users[idx].phone = phone;
@@ -590,7 +610,7 @@ async function attendanceForDate(dateStr){
 }
 
 async function renderDashboard(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayLocal();
   const att = await attendanceForDate(today);
   const secFilter = mySectionFilter();
   const activeEmps = DB.employees.filter(e=>e.status==='Active' && (secFilter?e.sectionId===secFilter:true));
@@ -713,7 +733,7 @@ async function saveEmployee(empId){
     const idx = DB.employees.findIndex(e=>e.id===empId);
     DB.employees[idx] = {...DB.employees[idx], ...data};
   } else {
-    DB.employees.push({id:'emp_'+Date.now(), ...data, dateJoined:new Date().toISOString().slice(0,10)});
+    DB.employees.push({id:'emp_'+Date.now(), ...data, dateJoined: todayLocal()});
   }
   await ssave("employees", DB.employees);
   closeModal();
@@ -724,10 +744,10 @@ async function saveEmployee(empId){
 /* ============ ATTENDANCE ============ */
 let attendanceDraft = {};
 
-function setDefaultDate(){ document.getElementById('att-date').value = new Date().toISOString().slice(0,10); }
+function setDefaultDate(){ document.getElementById('att-date').value = todayLocal(); }
 
 async function renderAttendance(){
-  const dateStr = document.getElementById('att-date').value || new Date().toISOString().slice(0,10);
+  const dateStr = document.getElementById('att-date').value || todayLocal();
   const secFilter = mySectionFilter();
   const att = await attendanceForDate(dateStr);
   attendanceDraft = {...att};
@@ -777,9 +797,8 @@ function markAllPresent(){
 async function saveAttendance(){
   const dateStr = document.getElementById('att-date').value;
   await ssave("attendance:"+dateStr, attendanceDraft);
-  showToast("Attendance saved. Updating Excel file...");
+  showToast("Attendance saved.");
   renderDashboard();
-  await exportToExcel(true);
 }
 
 /* ============ EXCEL EXPORT ============ */
@@ -846,7 +865,7 @@ function populateMonthSelect(){
   let opts = '';
   for(let i=0;i<6;i++){
     const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    const val = d.toISOString().slice(0,7);
+    const val = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); // local date, not UTC
     const label = d.toLocaleString('default',{month:'long', year:'numeric'});
     opts += `<option value="${val}" ${i===0?'selected':''}>${label}</option>`;
   }
@@ -908,8 +927,8 @@ function openLeaveModal(){
   document.getElementById('modal-body').innerHTML = `
     <h3>Record Leave</h3>
     <div class="field"><label>Employee *</label><select id="lv-emp">${emps.map(e=>`<option value="${e.id}">${e.name} (${e.code})</option>`).join('')}</select></div>
-    <div class="field"><label>From *</label><input type="date" id="lv-from" value="${new Date().toISOString().slice(0,10)}"></div>
-    <div class="field"><label>To *</label><input type="date" id="lv-to" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>From *</label><input type="date" id="lv-from" value="${todayLocal()}"></div>
+    <div class="field"><label>To *</label><input type="date" id="lv-to" value="${todayLocal()}"></div>
     <div class="field"><label>Type</label><select id="lv-type"><option>Sick</option><option>Casual</option><option>Paid</option><option>Unpaid</option></select></div>
     <div class="field"><label>Reason</label><input id="lv-reason" placeholder="Optional"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveLeave()">Save Leave</button></div>`;
@@ -1020,7 +1039,7 @@ function openSuperAdminSettings(){
     <h3>Super Admin Account Settings</h3>
     <div class="field"><label>Username</label><input id="sa-user" value="${sa.username}"></div>
     <div class="field"><label>Full Name</label><input id="sa-name" value="${sa.fullName||''}"></div>
-    <div class="field"><label>Recovery Phone Number</label><input id="sa-phone" value="${sa.phone||''}" placeholder="Used for Forgot Password OTP"></div>
+    <div class="field"><label>Recovery Phone Number</label><input id="sa-phone" value="${sa.phone||''}" placeholder="+919876543210"></div>
     <div class="err" id="sa-err"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveSuperAdminSettings()">Save</button></div>
     <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:16px;">
@@ -1035,6 +1054,7 @@ async function saveSuperAdminSettings(){
   const phone = document.getElementById('sa-phone').value.trim();
   const errEl = document.getElementById('sa-err');
   if(!username){ errEl.textContent = "Username is required."; return; }
+  if(phone && !/^\+[1-9]\d{7,14}$/.test(phone)){ errEl.textContent = "Phone must be in international format, e.g. +919876543210."; return; }
   const sa = getSuperAdmin();
   const otherDupe = DB.users.find(u=>u.id!==sa.id && u.username.toLowerCase()===username.toLowerCase());
   if(otherDupe){ errEl.textContent = "That username is already in use."; return; }
