@@ -1,4 +1,4 @@
-const CACHE_NAME = "bcclAR-v6";
+const CACHE_NAME = "bcclAR-v7";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./logo.png"];
 
 self.addEventListener("install", (event) => {

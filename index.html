@@ -481,7 +481,8 @@ function renderForgotPasswordStep1(){
     return;
   }
   document.getElementById('fp-card').innerHTML = `
-    <div class="field"><label>Registered Email</label><input id="fp-email" placeholder="you@example.com"></div>
+    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">A verification code will be sent to your registered recovery email:</p>
+    <p style="font-size:15px;font-weight:700;color:var(--amber);margin:8px 0 18px;">${sa.email}</p>
     <div class="err" id="fp-err"></div>
     <button class="btn primary" onclick="sendOtp()">Send Code by Email</button>`;
 }
@@ -504,17 +505,15 @@ let pendingEmailOtp = null; // {code, expiresAt}
 
 async function sendOtp(){
   const sa = getSuperAdmin();
-  const enteredEmail = document.getElementById('fp-email').value.trim();
   const errEl = document.getElementById('fp-err');
-  if(enteredEmail.toLowerCase() !== (sa.email||'').toLowerCase()){ errEl.textContent = "That email doesn't match our records."; return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(enteredEmail)){ errEl.textContent = "Enter a valid email address."; return; }
+  if(!sa.email){ errEl.textContent = "No recovery email is configured for this account."; return; }
   if(EMAILJS_NOT_CONFIGURED){ errEl.textContent = "Email recovery isn't set up yet. Contact whoever manages this app."; return; }
 
   errEl.textContent = "Sending...";
   const code = String(Math.floor(100000 + Math.random()*900000));
   try{
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      to_email: enteredEmail,
+      to_email: sa.email,
       otp_code: code,
     });
   } catch(e){
@@ -525,7 +524,7 @@ async function sendOtp(){
   pendingEmailOtp = { code, expiresAt: Date.now() + 5*60*1000 };
 
   document.getElementById('fp-card').innerHTML = `
-    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">A code was emailed to ${enteredEmail}. It expires in 5 minutes.</p>
+    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">A code was emailed to ${sa.email}. It expires in 5 minutes.</p>
     <div class="field"><label>Enter the 6-digit code</label><input id="fp-otp" placeholder="000000" maxlength="6"></div>
     <div class="err" id="fp-err2"></div>
     <button class="btn primary" onclick="verifyOtp()">Verify Code</button>`;
