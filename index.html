@@ -387,7 +387,7 @@ async function loadAll(){
     });
     const salt = genSalt();
     const hash = await hashPw("admin123", salt);
-    DB.users = [{id:"u_admin", username:"admin", salt, hash, fullName:"Super Admin", role:"super_admin", sectionId:null, status:"Active", email:null}];
+    DB.users = [{id:"u_admin", username:"admin", salt, hash, fullName:"Super Admin", role:"super_admin", sectionId:null, status:"Active", email:"himanshubaghel32@gmail.com"}];
     DB.employees = [];
     DB.leaves = [];
     await ssave("sections", DB.sections);
