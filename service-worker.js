@@ -1,5 +1,5 @@
-const CACHE_NAME = "pittrack-v2";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE_NAME = "bcclAR-v4";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./logo.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

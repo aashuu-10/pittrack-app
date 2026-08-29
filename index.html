@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-<title>PitTrack Attendance</title>
+<title>BCCL A-R</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#12161b">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" href="logo.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
@@ -40,8 +40,9 @@
 
   /* ---------- Landing ---------- */
   .landing{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:32px 24px;text-align:center;}
-  .landing-badge{width:64px;height:64px;border-radius:14px;background:linear-gradient(155deg,var(--amber),#c47d10);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#1a1300;margin-bottom:18px;letter-spacing:-1px;}
-  .landing h1{font-size:26px;font-weight:800;margin:0 0 4px;letter-spacing:-0.3px;}
+  .landing-badge{width:80px;height:80px;border-radius:14px;overflow:hidden;margin-bottom:18px;box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .landing-badge img{width:100%;height:100%;object-fit:cover;display:block;}
+  .landing h1{font-size:22px;font-weight:800;margin:0 0 4px;letter-spacing:-0.3px;}
   .landing p.tag{color:var(--text-dim);font-size:13px;margin:0 0 40px;letter-spacing:.3px;text-transform:uppercase;font-weight:600;}
   .landing-buttons{width:100%;display:flex;flex-direction:column;gap:14px;}
   .land-btn{width:100%;padding:20px 18px;border-radius:var(--radius);border:1px solid var(--border);background:var(--panel);text-align:left;display:flex;align-items:center;gap:14px;transition:transform .12s ease, border-color .12s ease;}
@@ -129,6 +130,33 @@
   .modal h3{margin:0 0 16px;font-size:16px;}
   .modal-actions{display:flex;gap:8px;margin-top:6px;}
   .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--panel-alt);border:1px solid var(--amber-dim);color:var(--text);padding:11px 18px;border-radius:9px;font-size:12.5px;z-index:30;display:none;max-width:90%;text-align:center;}
+
+  /* ---------- Desktop / website layout ---------- */
+  @media (min-width: 860px){
+    #root{ max-width:1200px; }
+    .landing, .login-view{ max-width:440px; width:100%; align-self:center; }
+    .app-shell.active{
+      display:grid;
+      grid-template-columns: 230px 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas: "nav header" "nav main";
+      min-height:100vh;
+    }
+    .header{ grid-area:header; }
+    .main-content{ grid-area:main; padding:28px 40px; padding-bottom:28px; max-width:1000px; }
+    .bottomnav{
+      grid-area:nav; position:static; width:auto; max-width:none; left:auto; bottom:auto; transform:none;
+      flex-direction:column; align-items:stretch; justify-content:flex-start; gap:2px;
+      padding:20px 10px; border-top:none; border-right:1px solid var(--border);
+    }
+    .navbtn{ flex-direction:row; justify-content:flex-start; gap:10px; padding:12px 14px; font-size:13px; border-radius:8px; }
+    .navbtn.on{ background:var(--panel-alt); }
+    .navbtn .navic{ font-size:17px; }
+    .cards-row{ overflow-x:visible; flex-wrap:wrap; }
+    .stat-card{ flex:1 1 160px; }
+    .modal-bg{ align-items:center; }
+    .modal{ border-radius:16px; max-width:460px; }
+  }
 </style>
 </head>
 <body>
@@ -136,8 +164,8 @@
 
   <!-- LANDING -->
   <div class="landing" id="view-landing">
-    <div class="landing-badge">PT</div>
-    <h1>PitTrack</h1>
+    <div class="landing-badge"><img src="logo.png" alt="BCCL logo"></div>
+    <h1>BCCL A-R</h1>
     <p class="tag">Section Attendance System</p>
     <div class="landing-buttons">
       <button class="land-btn main" onclick="goto('login-super')">
@@ -186,7 +214,10 @@
   <!-- APP SHELL -->
   <div class="app-shell" id="app-shell">
     <div class="header">
-      <div class="who"><strong id="hdr-name">-</strong><span id="hdr-scope">-</span></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="logo.png" alt="BCCL" style="width:34px;height:34px;border-radius:8px;flex-shrink:0;">
+        <div class="who"><strong id="hdr-name">-</strong><span id="hdr-scope">-</span></div>
+      </div>
       <div style="display:flex;gap:8px;" id="hdr-actions">
         <button class="icon-btn" onclick="logout()" title="Log out">&#10162;</button>
       </div>
@@ -260,7 +291,17 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
+/* ============ EMAILJS CONFIG - PASTE YOUR IDs HERE ============ */
+const EMAILJS_PUBLIC_KEY = "YOUR_EMAILJS_PUBLIC_KEY";
+const EMAILJS_SERVICE_ID = "YOUR_EMAILJS_SERVICE_ID";
+const EMAILJS_TEMPLATE_ID = "YOUR_EMAILJS_TEMPLATE_ID";
+const EMAILJS_NOT_CONFIGURED = EMAILJS_PUBLIC_KEY === "YOUR_EMAILJS_PUBLIC_KEY";
+if(!EMAILJS_NOT_CONFIGURED){
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+}
+
 /* ============ FIREBASE CONFIG - PASTE YOUR CONFIG HERE ============ */
 const firebaseConfig = {
   apiKey: "AIzaSyBacTrxozLEAQcevOgTna-hPuNFJq9WHPE",
@@ -346,7 +387,7 @@ async function loadAll(){
     });
     const salt = genSalt();
     const hash = await hashPw("admin123", salt);
-    DB.users = [{id:"u_admin", username:"admin", salt, hash, fullName:"Super Admin", role:"super_admin", sectionId:null, status:"Active", phone:null}];
+    DB.users = [{id:"u_admin", username:"admin", salt, hash, fullName:"Super Admin", role:"super_admin", sectionId:null, status:"Active", email:null}];
     DB.employees = [];
     DB.leaves = [];
     await ssave("sections", DB.sections);
@@ -427,23 +468,22 @@ function logout(){
   goto('landing');
 }
 
-/* ============ FORGOT PASSWORD / OTP (Super Admin only, via Firebase Phone Auth) ============ */
+/* ============ FORGOT PASSWORD / OTP (Super Admin only, via EmailJS) ============ */
 
 function getSuperAdmin(){ return DB.users.find(u=>u.role==='super_admin'); }
 
 function renderForgotPasswordStep1(){
   const sa = getSuperAdmin();
-  if(!sa.phone){
+  if(!sa.email){
     document.getElementById('fp-card').innerHTML = `
-      <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">No recovery phone number is configured for this account, so an OTP can't be sent.</p>
+      <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">No recovery email is configured for this account, so an OTP can't be sent.</p>
       <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">There is no self-service reset for this case by design &mdash; anyone could otherwise use it to get in. Whoever manages this app/device can restore access directly on that device.</p>`;
     return;
   }
   document.getElementById('fp-card').innerHTML = `
-    <div class="field"><label>Registered Phone Number</label><input id="fp-phone" placeholder="+91XXXXXXXXXX (with country code)"></div>
+    <div class="field"><label>Registered Email</label><input id="fp-email" placeholder="you@example.com"></div>
     <div class="err" id="fp-err"></div>
-    <button class="btn primary" onclick="sendOtp()">Send OTP</button>
-    <div id="recaptcha-container" style="margin-top:12px;"></div>`;
+    <button class="btn primary" onclick="sendOtp()">Send Code by Email</button>`;
 }
 
 /* Device-owner-only recovery: intentionally NOT linked from any button or menu.
@@ -460,45 +500,42 @@ window.emergencyReset = async function(newPassword){
   return ok;
 };
 
-let pendingConfirmation = null;
-let recaptchaVerifier = null;
+let pendingEmailOtp = null; // {code, expiresAt}
 
 async function sendOtp(){
   const sa = getSuperAdmin();
-  const enteredPhone = document.getElementById('fp-phone').value.trim();
+  const enteredEmail = document.getElementById('fp-email').value.trim();
   const errEl = document.getElementById('fp-err');
-  if(enteredPhone !== sa.phone){ errEl.textContent = "That phone number doesn't match our records."; return; }
-  if(!/^\+[1-9]\d{7,14}$/.test(enteredPhone)){ errEl.textContent = "Enter the number in international format, e.g. +919876543210."; return; }
+  if(enteredEmail.toLowerCase() !== (sa.email||'').toLowerCase()){ errEl.textContent = "That email doesn't match our records."; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(enteredEmail)){ errEl.textContent = "Enter a valid email address."; return; }
+  if(EMAILJS_NOT_CONFIGURED){ errEl.textContent = "Email recovery isn't set up yet. Contact whoever manages this app."; return; }
 
   errEl.textContent = "Sending...";
+  const code = String(Math.floor(100000 + Math.random()*900000));
   try{
-    if(!recaptchaVerifier){
-      recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { size: 'invisible' });
-    }
-    pendingConfirmation = await firebase.auth().signInWithPhoneNumber(enteredPhone, recaptchaVerifier);
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: enteredEmail,
+      otp_code: code,
+    });
   } catch(e){
     console.error(e);
-    errEl.textContent = "Could not send the OTP. Check the number and try again in a minute.";
+    errEl.textContent = "Could not send the email. Try again in a minute.";
     return;
   }
+  pendingEmailOtp = { code, expiresAt: Date.now() + 5*60*1000 };
 
   document.getElementById('fp-card').innerHTML = `
-    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">A code was texted to ${enteredPhone}.</p>
+    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">A code was emailed to ${enteredEmail}. It expires in 5 minutes.</p>
     <div class="field"><label>Enter the 6-digit code</label><input id="fp-otp" placeholder="000000" maxlength="6"></div>
     <div class="err" id="fp-err2"></div>
     <button class="btn primary" onclick="verifyOtp()">Verify Code</button>`;
 }
 
-async function verifyOtp(){
+function verifyOtp(){
   const entered = document.getElementById('fp-otp').value.trim();
   const errEl = document.getElementById('fp-err2');
-  if(!pendingConfirmation){ errEl.textContent = "Session expired. Go back and request a new code."; return; }
-  try{
-    await pendingConfirmation.confirm(entered);
-  } catch(e){
-    errEl.textContent = "Incorrect or expired code.";
-    return;
-  }
+  if(!pendingEmailOtp || Date.now() > pendingEmailOtp.expiresAt){ errEl.textContent = "Code expired. Go back and request a new one."; return; }
+  if(entered !== pendingEmailOtp.code){ errEl.textContent = "Incorrect code."; return; }
 
   document.getElementById('fp-card').innerHTML = `
     <div class="field"><label>New Password</label><input id="fp-new" type="password"></div>
@@ -522,7 +559,7 @@ async function finishOtpReset(){
   const ok = await ssave("users", DB.users);
   if(!ok){ errEl.textContent = "Could not save the new password. Check your connection and try again."; return; }
 
-  pendingConfirmation = null;
+  pendingEmailOtp = null;
   showToast("Password reset. Please log in with your new password.");
   goto('login-super');
 }
@@ -541,32 +578,32 @@ function enterApp(){
   populateMonthSelect();
   setDefaultDate();
   switchTab('dashboard');
-  if(isSuper && !currentUser.phone) promptForRecoveryPhone();
+  if(isSuper && !currentUser.email) promptForRecoveryEmail();
 }
 
-function promptForRecoveryPhone(){
+function promptForRecoveryEmail(){
   document.getElementById('modal-body').innerHTML = `
-    <h3>Set a Recovery Phone Number</h3>
-    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">This is required so you can reset your password via a real SMS code if you're ever locked out. Use international format with country code.</p>
-    <div class="field"><label>Phone Number</label><input id="rp-phone" placeholder="+919876543210"></div>
+    <h3>Set a Recovery Email</h3>
+    <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">This is required so you can reset your password via an emailed code if you're ever locked out.</p>
+    <div class="field"><label>Email Address</label><input id="rp-email" placeholder="you@example.com"></div>
     <div class="err" id="rp-err"></div>
-    <button class="btn primary" onclick="saveRecoveryPhone()">Save Phone Number</button>`;
+    <button class="btn primary" onclick="saveRecoveryEmail()">Save Email</button>`;
   openModal();
   document.getElementById('modal-bg').dataset.mandatory = "true";
 }
 
-async function saveRecoveryPhone(){
-  const phone = document.getElementById('rp-phone').value.trim();
+async function saveRecoveryEmail(){
+  const email = document.getElementById('rp-email').value.trim();
   const errEl = document.getElementById('rp-err');
-  if(!/^\+[1-9]\d{7,14}$/.test(phone)){ errEl.textContent = "Use international format with country code, e.g. +919876543210."; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = "Enter a valid email address."; return; }
   const idx = DB.users.findIndex(u=>u.id===currentUser.id);
-  const previous = DB.users[idx].phone;
-  DB.users[idx].phone = phone;
+  const previous = DB.users[idx].email;
+  DB.users[idx].email = email;
   const ok = await ssave("users", DB.users);
-  if(!ok){ DB.users[idx].phone = previous; errEl.textContent = "Could not save. Check your connection and try again."; return; }
+  if(!ok){ DB.users[idx].email = previous; errEl.textContent = "Could not save. Check your connection and try again."; return; }
   currentUser = DB.users[idx];
   closeModal();
-  showToast("Recovery phone saved.");
+  showToast("Recovery email saved.");
 }
 
 function buildBottomNav(isSuper){
@@ -854,7 +891,7 @@ async function exportToExcel(silent){
   XLSX.utils.book_append_sheet(wb, ws, "Attendance");
   const scope = secFilter ? (sectionById(secFilter)?.name || "Section") : "AllSections";
   const stamp = new Date().toISOString().replace(/[:T]/g,"-").slice(0,19);
-  XLSX.writeFile(wb, `PitTrack_Attendance_${scope}_${stamp}.xlsx`);
+  XLSX.writeFile(wb, `BCCL_AR_Attendance_${scope}_${stamp}.xlsx`);
   if(!silent) showToast("Excel file downloaded.");
 }
 
@@ -1039,7 +1076,7 @@ function openSuperAdminSettings(){
     <h3>Super Admin Account Settings</h3>
     <div class="field"><label>Username</label><input id="sa-user" value="${sa.username}"></div>
     <div class="field"><label>Full Name</label><input id="sa-name" value="${sa.fullName||''}"></div>
-    <div class="field"><label>Recovery Phone Number</label><input id="sa-phone" value="${sa.phone||''}" placeholder="+919876543210"></div>
+    <div class="field"><label>Recovery Email</label><input id="sa-email" value="${sa.email||''}" placeholder="you@example.com"></div>
     <div class="err" id="sa-err"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveSuperAdminSettings()">Save</button></div>
     <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:16px;">
@@ -1051,10 +1088,10 @@ function openSuperAdminSettings(){
 async function saveSuperAdminSettings(){
   const username = document.getElementById('sa-user').value.trim();
   const fullName = document.getElementById('sa-name').value.trim();
-  const phone = document.getElementById('sa-phone').value.trim();
+  const email = document.getElementById('sa-email').value.trim();
   const errEl = document.getElementById('sa-err');
   if(!username){ errEl.textContent = "Username is required."; return; }
-  if(phone && !/^\+[1-9]\d{7,14}$/.test(phone)){ errEl.textContent = "Phone must be in international format, e.g. +919876543210."; return; }
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = "Enter a valid email address."; return; }
   const sa = getSuperAdmin();
   const otherDupe = DB.users.find(u=>u.id!==sa.id && u.username.toLowerCase()===username.toLowerCase());
   if(otherDupe){ errEl.textContent = "That username is already in use."; return; }
@@ -1063,7 +1100,7 @@ async function saveSuperAdminSettings(){
   const idx = DB.users.findIndex(u=>u.id===sa.id);
   DB.users[idx].username = username;
   DB.users[idx].fullName = fullName;
-  DB.users[idx].phone = phone || null;
+  DB.users[idx].email = email || null;
   const ok = await ssave("users", DB.users);
   if(!ok){ DB.users = previousUsers; errEl.textContent = "Could not save. Check your connection and try again."; return; }
   currentUser = DB.users[idx];

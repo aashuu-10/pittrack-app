@@ -1,6 +1,6 @@
 {
-  "name": "PitTrack Attendance",
-  "short_name": "PitTrack",
+  "name": "BCCL A-R",
+  "short_name": "BCCL A-R",
   "description": "Section-based staff attendance manager for Development, Longwall, CCS, LHD4, and LOCO.",
   "start_url": "./index.html",
   "scope": "./",
